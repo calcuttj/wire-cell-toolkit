@@ -148,6 +148,16 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_mp_th2 = get(config, "mp_th2", m_mp_th2);
     m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
+    //m_reference_thresholds = get(
+    //    config, "reference_thresholds", m_reference_thresholds);
+    m_reference_thresholds[0] = get(config, "reference_threshold_0", 0.);
+    m_reference_thresholds[1] = get(config, "reference_threshold_1", 0.);
+    m_reference_thresholds[2] = get(config, "reference_threshold_2", 0.);
+    m_force_thresholds_to_refs = get(
+        config, "force_thresholds_to_refs", m_force_thresholds_to_refs);
+    std::cout << "GOT REFERENCE THRESHOLDS " << m_reference_thresholds[0] <<
+                 " " << m_reference_thresholds[1] << " " <<
+                 " " << m_reference_thresholds[2] << std::endl; 
 
     if (config.isMember("rebase_planes")) {
        m_rebase_planes.clear();
@@ -1431,7 +1441,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     // create a class for ROIs ...
     ROI_formation roi_form(m_wanmm, m_nwires[0], m_nwires[1], m_nwires[2], m_nticks, m_th_factor_ind, m_th_factor_col,
                            m_pad, m_asy, m_rebin, m_l_factor, m_l_max_th, m_l_factor1, m_l_short_length,
-                           m_l_jump_one_bin);
+                           m_l_jump_one_bin, m_reference_thresholds, m_force_thresholds_to_refs);
     ROI_refinement roi_refine(
         m_wanmm, m_nwires[0], m_nwires[1], m_nwires[2], m_r_th_factor, m_r_fake_signal_low_th, m_r_fake_signal_high_th,
         m_r_fake_signal_low_th_ind_factor, m_r_fake_signal_high_th_ind_factor, m_r_pad, m_r_break_roi_loop, m_r_th_peak,
@@ -1439,7 +1449,6 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
 
     const std::vector<float>* perplane_thresholds[3] = {&roi_form.get_uplane_rms(), &roi_form.get_vplane_rms(),
                                                         &roi_form.get_wplane_rms()};
-
     for (int iplane = 0; iplane != 3; ++iplane) {
         auto it = std::find(m_process_planes.begin(), m_process_planes.end(), iplane);
         if (it == m_process_planes.end()) continue;
@@ -1466,6 +1475,10 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             roi_form.find_ROI_by_decon_itself(iplane, m_r_data[iplane]);
         }
         check_data(iplane, "after 2D tight ROI");
+        std::cout << "RMSes " << iplane << std::endl;
+        for (auto & rms : perwire_rmses) {
+          std::cout << "\t" << rms << std::endl;
+        }
 
         // save_data passes perwire_rmses to dummy, which will not be used
         std::vector<double> dummy;
