@@ -148,16 +148,26 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_mp_th2 = get(config, "mp_th2", m_mp_th2);
     m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
-    //m_reference_thresholds = get(
-    //    config, "reference_thresholds", m_reference_thresholds);
-    m_reference_thresholds[0] = get(config, "reference_threshold_0", 0.);
-    m_reference_thresholds[1] = get(config, "reference_threshold_1", 0.);
-    m_reference_thresholds[2] = get(config, "reference_threshold_2", 0.);
+    if (config.isMember("reference_thresholds")) {
+      size_t ref_size = config["reference_thresholds"].size();
+      if (ref_size != 3) {
+        std::string message = "reference_thresholds provided "
+                              "with invalid number of values: ";
+        message += std::to_string(ref_size) + " (expected 3)";
+        throw std::runtime_error(message);
+      }
+
+      for (int i = 0; i < 3; ++i) {
+        m_reference_thresholds[i] = config["reference_thresholds"][i].asFloat();
+      }
+    }
+
     m_force_thresholds_to_refs = get(
         config, "force_thresholds_to_refs", m_force_thresholds_to_refs);
-    std::cout << "GOT REFERENCE THRESHOLDS " << m_reference_thresholds[0] <<
-                 " " << m_reference_thresholds[1] << " " <<
-                 " " << m_reference_thresholds[2] << std::endl; 
+    log->debug("Got reference thresholds {} {} {}",
+               m_reference_thresholds[0],
+               m_reference_thresholds[1],
+               m_reference_thresholds[2]);
 
     if (config.isMember("rebase_planes")) {
        m_rebase_planes.clear();
@@ -1475,10 +1485,6 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             roi_form.find_ROI_by_decon_itself(iplane, m_r_data[iplane]);
         }
         check_data(iplane, "after 2D tight ROI");
-        std::cout << "RMSes " << iplane << std::endl;
-        for (auto & rms : perwire_rmses) {
-          std::cout << "\t" << rms << std::endl;
-        }
 
         // save_data passes perwire_rmses to dummy, which will not be used
         std::vector<double> dummy;

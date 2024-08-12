@@ -322,7 +322,6 @@ void ROI_refinement::load_data(int plane, const Array::array_xxf &r_data, ROI_fo
             //Check if this threshold is below some minimum reference value or
             //if we're forcing the thrshold to that
             CheckAndSetThreshold(threshold, plane, roi_form);
-            std::cout << threshold << std::endl;
 
             if (tight_roi->get_above_threshold(threshold).size() == 0) {
                 delete tight_roi;
@@ -501,7 +500,6 @@ void ROI_refinement::load_data(int plane, const Array::array_xxf &r_data, ROI_fo
                 //Check if this threshold is below some minimum reference value or
                 //if we're forcing the thrshold to that
                 CheckAndSetThreshold(threshold, plane, roi_form);
-            std::cout << threshold << std::endl;
                 if (loose_roi->get_above_threshold(threshold).size() == 0) {
                     delete loose_roi;
                     continue;
@@ -1635,7 +1633,6 @@ void ROI_refinement::ShrinkROI(SignalROI *roi, ROI_formation &roi_form)
     //Check if this threshold is below some minimum reference value or
     //if we're forcing the thrshold to that
     CheckAndSetThreshold(threshold1, plane, roi_form);
-            std::cout << threshold1 << std::endl;
 
     int channel_save = 1240;
     int print_flag = 0;
@@ -1686,7 +1683,6 @@ void ROI_refinement::ShrinkROI(SignalROI *roi, ROI_formation &roi_form)
             //Check if this threshold is below some minimum reference value or
             //if we're forcing the thrshold to that
             CheckAndSetThreshold(threshold, plane1, roi_form);
-            std::cout << threshold << std::endl;
 
             std::vector<std::pair<int, int>> contents_above_threshold = next_roi->get_above_threshold(threshold);
             for (size_t i = 0; i != contents_above_threshold.size(); i++) {
@@ -3157,13 +3153,13 @@ void ROI_refinement::CheckAndSetThreshold(float & threshold,
   float reference_thresh = roi_form.get_threshold_refs(plane);
   if (threshold < reference_thresh ||
       roi_form.get_force_threshold_refs()) {
-    std::cout << "Setting threshold to reference " << threshold << " " <<
-                 reference_thresh << std::endl;
+    log->debug("Setting threshold to reference {} {}", threshold,
+               reference_thresh);
     threshold = reference_thresh;
   }
   else {
-    std::cout << "Not setting threshold to reference " << threshold << " " <<
-                 reference_thresh << std::endl;
+    log->debug("Not setting threshold to reference {} {}", threshold,
+               reference_thresh);
   }
 }
 
