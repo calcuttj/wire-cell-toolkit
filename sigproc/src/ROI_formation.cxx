@@ -8,7 +8,8 @@ using namespace WireCell::SigProc;
 
 ROI_formation::ROI_formation(Waveform::ChannelMaskMap& cmm, int nwire_u, int nwire_v, int nwire_w, int nbins,
                              float th_factor_ind, float th_factor_col, int pad, float asy, int rebin, double l_factor,
-                             double l_max_th, double l_factor1, int l_short_length, int l_jump_one_bin)
+                             double l_max_th, double l_factor1, int l_short_length, int l_jump_one_bin,
+                             std::array<float,3 > threshold_refs, bool force_threshold_refs)
   : nwire_u(nwire_u)
   , nwire_v(nwire_v)
   , nwire_w(nwire_w)
@@ -23,6 +24,8 @@ ROI_formation::ROI_formation(Waveform::ChannelMaskMap& cmm, int nwire_u, int nwi
   , l_factor1(l_factor1)
   , l_short_length(l_short_length)
   , l_jump_one_bin(l_jump_one_bin)
+  , m_threshold_refs{threshold_refs[0], threshold_refs[1], threshold_refs[2]}
+  , m_force_threshold_refs(force_threshold_refs)
 {
     self_rois_u.resize(nwire_u);
     self_rois_v.resize(nwire_v);
@@ -454,6 +457,11 @@ void ROI_formation::find_ROI_by_decon_itself(int plane, const Array::array_xxf& 
             threshold = th_factor_col * rms + 1;
             wplane_rms.at(irow) = rms;
         }
+
+        //Check if the threshold is below the reference minimum
+        //(or if we're forcing it to those values)
+        if (threshold < m_threshold_refs[plane] || m_force_threshold_refs)
+          threshold = m_threshold_refs[plane];
 
         //  std::cout << plane << " " << signal.size() << " " << irow << " " << rms << std::endl;
 

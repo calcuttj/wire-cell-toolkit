@@ -7,6 +7,7 @@
 #include "WireCellUtil/Waveform.h"
 
 #include <vector>
+#include <array>
 #include <map>
 
 namespace WireCell {
@@ -16,7 +17,8 @@ namespace WireCell {
             ROI_formation(Waveform::ChannelMaskMap& cmm, int nwire_u, int nwire_v, int nwire_w, int nbins = 9594,
                           float th_factor_ind = 3, float th_factor_col = 5, int pad = 5, float asy = 0.1, int rebin = 6,
                           double l_factor = 3.5, double l_max_th = 10000, double l_factor1 = 0.7,
-                          int l_short_length = 3, int l_jump_one_bin = 0);
+                          int l_short_length = 3, int l_jump_one_bin = 0, std::array<float, 3> threshold_refs = {0., 0., 0.},
+                          bool force_threshold_refs = false);
             ~ROI_formation();
 
             void Clear();
@@ -69,6 +71,19 @@ namespace WireCell {
                 return wplane_rms;
             };
 
+            float get_threshold_refs(size_t plane) const {
+              if (plane > 2) {
+                std::string message = "Requested invalid plane " +
+                                      std::to_string(plane) +
+                                      " from reference thresholds";
+                throw std::runtime_error(message);
+              }
+              return m_threshold_refs[plane];
+            };
+            bool get_force_threshold_refs() const {
+                return m_force_threshold_refs;
+            };
+
            private:
             double cal_RMS(Waveform::realseq_t signal);
             double local_ave(Waveform::realseq_t& signal, int bin, int width);
@@ -104,6 +119,8 @@ namespace WireCell {
             std::vector<float> uplane_rms;  // calibrated field response
             std::vector<float> vplane_rms;  // calibrated field response
             std::vector<float> wplane_rms;  // calibrated field response
+            std::array<float, 3> m_threshold_refs;
+            bool m_force_threshold_refs = false;
         };
     }  // namespace SigProc
 }  // namespace WireCell

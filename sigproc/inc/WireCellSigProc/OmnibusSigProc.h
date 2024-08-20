@@ -241,6 +241,13 @@ namespace WireCell {
             int m_verbose{0};
 
             IDFT::pointer m_dft;
+
+
+            //Reference thresholds to provide a minimum value
+            //for ROI finding (i.e. if RMS is low).
+            std::array<float, 3> m_reference_thresholds{0., 0., 0.};
+            //Switch to force thresholds to the reference values
+            bool m_force_thresholds_to_refs{false};
         };
     }  // namespace SigProc
 }  // namespace WireCell

@@ -318,6 +318,11 @@ void ROI_refinement::load_data(int plane, const Array::array_xxf &r_data, ROI_fo
             SignalROI *tight_roi =
                 new SignalROI(plane, irow + offset, uboone_rois.at(i).first, uboone_rois.at(i).second, signal);
             float threshold = plane_rms.at(irow) * th_factor;
+
+            //Check if this threshold is below some minimum reference value or
+            //if we're forcing the thrshold to that
+            CheckAndSetThreshold(threshold, plane, roi_form);
+
             if (tight_roi->get_above_threshold(threshold).size() == 0) {
                 delete tight_roi;
                 continue;
@@ -492,6 +497,9 @@ void ROI_refinement::load_data(int plane, const Array::array_xxf &r_data, ROI_fo
                 SignalROI *loose_roi =
                     new SignalROI(plane, chid, uboone_rois.at(i).first, uboone_rois.at(i).second, signal);
                 float threshold = plane_rms.at(irow) * th_factor;
+                //Check if this threshold is below some minimum reference value or
+                //if we're forcing the thrshold to that
+                CheckAndSetThreshold(threshold, plane, roi_form);
                 if (loose_roi->get_above_threshold(threshold).size() == 0) {
                     delete loose_roi;
                     continue;
@@ -1622,6 +1630,9 @@ void ROI_refinement::ShrinkROI(SignalROI *roi, ROI_formation &roi_form)
     else if (plane == 1) {
         threshold1 = roi_form.get_vplane_rms().at(chid - nwire_u) * th_factor;
     }
+    //Check if this threshold is below some minimum reference value or
+    //if we're forcing the thrshold to that
+    CheckAndSetThreshold(threshold1, plane, roi_form);
 
     int channel_save = 1240;
     int print_flag = 0;
@@ -1668,6 +1679,11 @@ void ROI_refinement::ShrinkROI(SignalROI *roi, ROI_formation &roi_form)
             else if (plane1 == 1) {
                 threshold = roi_form.get_vplane_rms().at(chid1 - nwire_u) * th_factor;
             }
+
+            //Check if this threshold is below some minimum reference value or
+            //if we're forcing the thrshold to that
+            CheckAndSetThreshold(threshold, plane1, roi_form);
+
             std::vector<std::pair<int, int>> contents_above_threshold = next_roi->get_above_threshold(threshold);
             for (size_t i = 0; i != contents_above_threshold.size(); i++) {
                 if (chid == channel_save && print_flag)
@@ -1701,6 +1717,7 @@ void ROI_refinement::ShrinkROI(SignalROI *roi, ROI_formation &roi_form)
             else if (plane1 == 1) {
                 threshold = roi_form.get_vplane_rms().at(chid1 - nwire_u) * th_factor;
             }
+            CheckAndSetThreshold(threshold, plane1, roi_form);
             std::vector<std::pair<int, int>> contents_above_threshold = prev_roi->get_above_threshold(threshold);
             for (size_t i = 0; i != contents_above_threshold.size(); i++) {
                 if (chid == channel_save && print_flag)
@@ -3128,6 +3145,22 @@ void ROI_refinement::ExtendROIs(int plane)
             // }
         }
     }
+}
+
+void ROI_refinement::CheckAndSetThreshold(float & threshold,
+                                          int plane,
+                                          const ROI_formation & roi_form) {
+  float reference_thresh = roi_form.get_threshold_refs(plane);
+  if (threshold < reference_thresh ||
+      roi_form.get_force_threshold_refs()) {
+    log->debug("Setting threshold to reference {} {}", threshold,
+               reference_thresh);
+    threshold = reference_thresh;
+  }
+  else {
+    log->debug("Not setting threshold to reference {} {}", threshold,
+               reference_thresh);
+  }
 }
 
 // Local Variables:

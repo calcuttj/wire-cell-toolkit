@@ -113,6 +113,9 @@ namespace WireCell {
             Log::logptr_t log;
 
             bool isWrapped;
+            void CheckAndSetThreshold(float & threshold,
+                                      int plane,
+                                      const ROI_formation & roi_form);
         };
     }  // namespace SigProc
 }  // namespace WireCell
