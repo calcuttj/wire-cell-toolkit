@@ -52,6 +52,7 @@ fi
 wct_cc=${CC:-gcc}
 wct_cxx=${CXX:-g++}
 wct_fort=${FORT:-gfortran}
+export CXXFLAGS='-Wno-misleading-indentation -Wno-int-in-bool-context -Wvla'
 env CC=$wct_cc CXX=$wct_cxx FC=wct_fort \
     ./wcb configure \
     --with-tbb=no \
@@ -65,5 +66,6 @@ env CC=$wct_cc CXX=$wct_cxx FC=wct_fort \
     --boost-includes="$BOOST_INC" \
     --boost-libs="$BOOST_LIB" \
     --boost-mt \
-    --prefix="$install_dir"
+    --prefix="$install_dir" \
+    --build-debug="-O2 -ggdb3 -w" 
 
