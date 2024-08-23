@@ -96,6 +96,10 @@ namespace WireCell {
             // find if neighbor channels hare masked.
             bool masked_neighbors(const std::string& cmname, OspChan& ochan, int nnn);
 
+            //Unpad the data
+            void unpad_data(int plane);
+            void pad_data(int plane);
+
             // Anode plane for geometry
             std::string m_anode_tn{"AnodePlane"};
             IAnodePlane::pointer m_anode;
@@ -248,6 +252,14 @@ namespace WireCell {
             std::array<float, 3> m_reference_thresholds{0., 0., 0.};
             //Switch to force thresholds to the reference values
             bool m_force_thresholds_to_refs{false};
+
+            //------Padding members
+            //Needed when physically separate planes are concatenated together
+            //for processing. i.e. DUNE collection planes on opposite faces or
+            //ICARUS electrically-separate induction plane 1
+            std::vector<std::vector<int>> m_nwires_separate_planes;
+            int m_avg_response_nwires;
+
         };
     }  // namespace SigProc
 }  // namespace WireCell
