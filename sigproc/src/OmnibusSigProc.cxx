@@ -178,6 +178,14 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_mp_th2 = get(config, "mp_th2", m_mp_th2);
     m_mp_tick_resolution = get(config, "mp_tick_resolution", m_mp_tick_resolution);
     
+    if (config.isMember("nwires_separate_planes")) {
+      for (auto vec : config["nwires_separate_planes"]) {
+        m_nwires_separate_planes.emplace_back(std::vector<int>());
+        for (auto vi : vec) {
+          m_nwires_separate_planes.back().push_back(vi.asInt());
+        }
+      }
+    }
 
     if (config.isMember("rebase_planes")) {
        m_rebase_planes.clear();
@@ -800,6 +808,8 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
     // since we only do FFT along time, no need to change dimension for wire ...
     const size_t fine_nticks = fft_best_length(fravg.planes[0].paths[0].current.size());
     int fine_nwires = fravg.planes[0].paths.size();
+    m_avg_response_nwires = fine_nwires;
+    std::cout << "Avg size: " << fine_nwires << std::endl;
 
     WireCell::Waveform::compseq_t elec;
     WireCell::Binning tbins(fine_nticks, 0, fine_nticks * fravg.period);
@@ -924,7 +934,7 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
             continue;
         }
         signal.resize(ncount);
-        std::cout << "Restoring baseline 1: " << signal.size() << std::endl;
+        //std::cout << "Restoring baseline 1: " << signal.size() << std::endl;
         float baseline = WireCell::Waveform::median(signal);
 
         Waveform::realseq_t temp_signal(arr.cols());
@@ -936,7 +946,7 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
             }
         }
         temp_signal.resize(ncount);
-        std::cout << "Restoring baseline 2: " << temp_signal.size() << std::endl;
+        //std::cout << "Restoring baseline 2: " << temp_signal.size() << std::endl;
 
         baseline = WireCell::Waveform::median(temp_signal);
 
@@ -989,20 +999,11 @@ void OmnibusSigProc::rebase_waveform(Array::array_xxf& arr,const int& n_bins)
 void OmnibusSigProc::decon_2D_init(int plane)
 {
     // data part ...
-    // first round of FFT on time
+    //Pad the data if needed.
+    //A check will be done internally to see if this is needed
+    pad_data(plane);
 
-    if (plane == 2) {
-      //Copy the data
-      auto temp_data = m_r_data[plane];
-      //Hardcoding the padding size here for now
-      //Increase by twice the average FR size
-      int base_rows = m_r_data[plane].rows();
-      int base_cols = m_r_data[plane].cols();
-      m_r_data[plane].resize(base_rows + 21*2, base_cols);
-      m_r_data[plane].block(21, 0, 480, base_cols) = temp_data.block(0, 0, 480, base_cols);
-      m_r_data[plane].block(21+21+480, 0, 480, base_cols) = temp_data.block(480, 0, 480, base_cols);
-      std::cout << "Padded to " << m_r_data[plane].rows() << std::endl;
-    }
+    // first round of FFT on time
     m_c_data[plane] = fwd_r2c(m_dft, m_r_data[plane], 1);
 
     // now apply the ch-by-ch response ...
@@ -1108,60 +1109,83 @@ void OmnibusSigProc::decon_2D_init(int plane)
         m_r_data[plane].block(0, time_shift, nrows, ncols - time_shift) = arr1;
     }
 
-    //Get the full, padded_data
-    auto padded_data = m_r_data[plane];
-    if (plane == 2) {
-      std::cout << "Unpadding from " << padded_data.rows() << std::endl;
-
-      int base_rows = m_nwires[plane];
-      //Get the nwires for the separate, concatenated planes
-      std::vector<int> nwires_separate_planes = {480, 480};
-      int base_cols = m_r_data[plane].cols();
-
-      m_r_data[plane].resize(base_rows, base_cols);
-      int pad_wires = 21;//m_avg_response_nwires[plane];
-
-
-      int npad = 21;
-      for (size_t ipad = 0; ipad < nwires_separate_planes.size(); ++ipad) {
-        int nw = nwires_separate_planes[ipad];
-        m_r_data[plane].block(ipad*nw, 0, nw, base_cols)
-          = padded_data.block((ipad+1)*npad + ipad*nw, 0, nw, base_cols);
-      }
-      std::cout << "Unpadded to " << m_r_data[plane].rows() << std::endl;
-    }
+    //Unpad the data if needed.
+    //A check will be done internally to see if this is needed
+    unpad_data(plane);
 
     m_c_data[plane] = fwd_r2c(m_dft, m_r_data[plane], 1);
 
 }
 
-/*
-void OmnibusSigProc::unpad_data(int plane) {
-  //Get the full, padded_data
-  auto padded_data = m_r_data[plane];
-  std::cout << "Unpadding from " << padded_data.rows() << std::endl;
+void OmnibusSigProc::pad_data(int plane) {
 
-  int base_rows = m_nwires[i];
-  //Get the nwires for the separate, concatenated planes
-  std::vector<int> nwires_separate_planes = [480, 480]; 
+  //Get the number of separate planes we need to pad between
+  auto nwires_separate_planes = m_nwires_separate_planes[plane];
+  int npad_blocks = nwires_separate_planes.size();
+  if (npad_blocks < 2) return; //Not necessary for < 2
+
+  //Copy the data
+  auto temp_data = m_r_data[plane];
+
+  int base_rows = m_r_data[plane].rows();
   int base_cols = m_r_data[plane].cols();
 
-  m_r_data[plane].resize(base_rows, base_cols);
-  int pad_wires = m_avg_response_nwires[plane];
+  //Pad between every separate plane + one at the beginning.
+  //That's the same number as the number of separate planes.
+  int total_pad_wires = base_rows + npad_blocks*m_avg_response_nwires;
+  m_r_data[plane].resize(total_pad_wires, base_cols);
 
-  int unpadded_index = 0;
-  int padded_index = 0;
-  for (auto & nw : nwires) {
-    m_r_data[plane].block(unpadded_index, 0, nw, base_cols)
-      = padded_data.block(padded_index + pad_wires, 0, nw, base_cols);
-    unpadded_index += nw;
-
-    m_r_data[plane].block(480, 0, nw, base_cols)
-      = padded_data.block(21+480, 0, nw, base_cols);
+  m_r_data[plane].block(21, 0, 480, base_cols) = temp_data.block(0, 0, 480, base_cols);
+  m_r_data[plane].block(21+21+480, 0, 480, base_cols) = temp_data.block(480, 0, 480, base_cols);
+  int source_index = 0;
+  int target_index = m_avg_response_nwires;
+  for (int i = 0; i < npad_blocks; ++i) {
+    int nwires = nwires_separate_planes[i];
+    m_r_data[plane].block(target_index, 0, nwires, base_cols)
+        = temp_data.block(source_index, 0, nwires, base_cols);
+    source_index += nwires;
+    target_index += (m_avg_response_nwires + nwires);
   }
 
-  std::cout << "Unpadded to " << m_r_data[plane].rows() << std::endl;
-}*/
+  std::cout << "Padded to " << m_r_data[plane].rows() << std::endl;
+}
+
+void OmnibusSigProc::unpad_data(int plane) {
+    //Get the nwires for the separate, concatenated planes
+    std::vector<int> nwires_separate_planes = m_nwires_separate_planes[plane];
+    //Check that we actually need to unpad
+    if (nwires_separate_planes.size() < 2) return;
+
+    //Get the full, padded_data
+    auto padded_data = m_r_data[plane];
+    std::cout << "Unpadding from " << padded_data.rows() << std::endl;
+
+    //Nominal size
+    int base_rows = m_nwires[plane];
+    int base_cols = m_r_data[plane].cols();
+
+    //Put back to normal size
+    m_r_data[plane].resize(base_rows, base_cols);
+    std::cout << "Resized to " << base_rows << " " << base_cols << std::endl;
+
+    //For every concatenated set of wires (physically separate planes),
+    //Removing the padding
+    int npad = m_avg_response_nwires;
+    int unpad_start = 0;
+    int pad_start = npad;
+    for (size_t ipad = 0; ipad < nwires_separate_planes.size(); ++ipad) {
+      int nw = nwires_separate_planes[ipad];
+
+      std::cout << "ipad: " << ipad << " Unpad start: " << unpad_start <<
+                   " pad_start: " << pad_start << std::endl;
+      m_r_data[plane].block(unpad_start, 0, nw, base_cols)
+        = padded_data.block(pad_start, 0, nw, base_cols);
+
+      unpad_start += nw;
+      pad_start += nw + npad;
+    }
+    std::cout << "Unpadded to " << m_r_data[plane].rows() << std::endl;
+}
 
 void OmnibusSigProc::decon_2D_ROI_refine(int plane)
 {
