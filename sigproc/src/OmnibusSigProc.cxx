@@ -1130,8 +1130,6 @@ void OmnibusSigProc::pad_data(int plane) {
   int total_pad_wires = base_rows + npad_blocks*m_avg_response_nwires;
   m_r_data[plane].resize(total_pad_wires, base_cols);
 
-  m_r_data[plane].block(21, 0, 480, base_cols) = temp_data.block(0, 0, 480, base_cols);
-  m_r_data[plane].block(21+21+480, 0, 480, base_cols) = temp_data.block(480, 0, 480, base_cols);
   int source_index = 0;
   int target_index = m_avg_response_nwires;
   for (int i = 0; i < npad_blocks; ++i) {
