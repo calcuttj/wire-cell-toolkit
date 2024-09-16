@@ -932,6 +932,8 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
         //std::cout << "Restoring baseline 1: " << signal.size() << std::endl;
         float baseline = WireCell::Waveform::median(signal);
 
+        //std::cout << "Baseline 1: " << baseline << std::endl;
+
         Waveform::realseq_t temp_signal(arr.cols());
         ncount = 0;
         for (size_t j = 0; j != signal.size(); j++) {
@@ -944,6 +946,7 @@ void OmnibusSigProc::restore_baseline(Array::array_xxf& arr)
         //std::cout << "Restoring baseline 2: " << temp_signal.size() << std::endl;
 
         baseline = WireCell::Waveform::median(temp_signal);
+        //std::cout << "Baseline 2: " << baseline << std::endl;
 
         for (int j = 0; j != arr.cols(); j++) {
             if (arr(i, j) != 0) arr(i, j) -= baseline;
@@ -1125,6 +1128,20 @@ void OmnibusSigProc::pad_data(int plane) {
   int base_rows = m_r_data[plane].rows();
   int base_cols = m_r_data[plane].cols();
 
+  //Get the average baseline for all of these wires
+  float baseline = 0.;
+  for (int i = 0; i < base_rows; ++i) {
+    Waveform::realseq_t signal(base_cols);
+    for (int j = 0; j < base_cols; j++) {
+      signal.at(j) = m_r_data[plane](i, j);
+    }
+    float median = WireCell::Waveform::median(signal);
+    baseline += median;
+    //std::cout << "row " << i << " median: " << median << std::endl;
+  }
+  baseline /= base_rows;
+  //std::cout << "Avg baseline: " << baseline << std::endl;
+
   //Pad between every separate plane + one at the beginning.
   //That's the same number as the number of separate planes.
   int total_pad_wires = base_rows + npad_blocks*m_avg_response_nwires;
@@ -1133,11 +1150,20 @@ void OmnibusSigProc::pad_data(int plane) {
   int source_index = 0;
   int target_index = m_avg_response_nwires;
   for (int i = 0; i < npad_blocks; ++i) {
+    //Fill with baseline
+    m_r_data[plane].block(
+        target_index - m_avg_response_nwires,
+        0,
+        m_avg_response_nwires,
+        base_cols) = baseline;
+    //Fill with data from wires
     int nwires = nwires_separate_planes[i];
     m_r_data[plane].block(target_index, 0, nwires, base_cols)
         = temp_data.block(source_index, 0, nwires, base_cols);
     source_index += nwires;
     target_index += (m_avg_response_nwires + nwires);
+
+
   }
 
   std::cout << "Padded to " << m_r_data[plane].rows() << std::endl;
