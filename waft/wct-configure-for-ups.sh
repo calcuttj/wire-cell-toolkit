@@ -57,7 +57,9 @@ env CC=$wct_cc CXX=$wct_cxx FC=wct_fort \
     ./wcb configure \
     --with-tbb=no \
     --with-jsoncpp="$JSONCPP_FQ_DIR" \
-    --with-jsonnet="$JSONNET_FQ_DIR" \
+    --with-jsonnet="$GOJSONNET_FQ_DIR" \
+    --with-spdlog="$SPDLOG_FQ_DIR" \
+    --with-spdlog-lib="$SPDLOG_LIB" \
     --with-eigen-include="$EIGEN_DIR/include/eigen3" \
     --with-root="$ROOT_FQ_DIR" \
     --with-fftw="$FFTW_FQ_DIR" \
