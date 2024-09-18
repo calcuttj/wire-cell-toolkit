@@ -813,7 +813,6 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
     const size_t fine_nticks = fft_best_length(fravg.planes[0].paths[0].current.size());
     int fine_nwires = fravg.planes[0].paths.size();
     m_avg_response_nwires = fine_nwires;
-    std::cout << "Avg size: " << fine_nwires << std::endl;
 
     WireCell::Waveform::compseq_t elec;
     WireCell::Binning tbins(fine_nticks, 0, fine_nticks * fravg.period);
@@ -916,7 +915,6 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
 
         // calculated the wire shift ...
         m_wire_shift[iplane] = (int(overall_resp[iplane].size()) - 1) / 2;
-        std::cout << "WIRE SHIFT " << m_wire_shift[iplane] << std::endl;
 
     }  //  loop over plane
 }
@@ -1094,7 +1092,6 @@ void OmnibusSigProc::decon_2D_init(int plane)
     const int nrows = m_r_data[plane].rows();
     const int ncols = m_r_data[plane].cols();
     {
-        std::cout << "APPLYING WIRE SHIFT" << std::endl;
         Array::array_xxf arr1(m_wire_shift[plane], ncols);
         arr1 = m_r_data[plane].block(nrows - m_wire_shift[plane], 0, m_wire_shift[plane], ncols);
         Array::array_xxf arr2(nrows - m_wire_shift[plane], ncols);
@@ -1105,8 +1102,6 @@ void OmnibusSigProc::decon_2D_init(int plane)
 
     // do the shift in time
     int time_shift = (m_coarse_time_offset + m_intrinsic_time_offset) / m_period;
-    std::cout << "TIME SHIFT " << time_shift << " " << m_coarse_time_offset <<
-                 " " << m_intrinsic_time_offset << std::endl;
     if (time_shift > 0) {
         Array::array_xxf arr1(nrows, ncols - time_shift);
         arr1 = m_r_data[plane].block(0, 0, nrows, ncols - time_shift);
@@ -1174,8 +1169,6 @@ void OmnibusSigProc::pad_data(int plane) {
 
 
   }
-
-  std::cout << "Padded to " << m_r_data[plane].rows() << std::endl;
 }
 
 void OmnibusSigProc::unpad_data(int plane) {
@@ -1186,7 +1179,6 @@ void OmnibusSigProc::unpad_data(int plane) {
 
     //Get the full, padded_data
     auto padded_data = m_r_data[plane];
-    std::cout << "Unpadding from " << padded_data.rows() << std::endl;
 
     //Nominal size
     int base_rows = m_nwires[plane];
@@ -1194,7 +1186,6 @@ void OmnibusSigProc::unpad_data(int plane) {
 
     //Put back to normal size
     m_r_data[plane].resize(base_rows, base_cols);
-    std::cout << "Resized to " << base_rows << " " << base_cols << std::endl;
 
     //For every concatenated set of wires (physically separate planes),
     //Removing the padding
@@ -1204,15 +1195,12 @@ void OmnibusSigProc::unpad_data(int plane) {
     for (size_t ipad = 0; ipad < nwires_separate_planes.size(); ++ipad) {
       int nw = nwires_separate_planes[ipad];
 
-      std::cout << "ipad: " << ipad << " Unpad start: " << unpad_start <<
-                   " pad_start: " << pad_start << std::endl;
       m_r_data[plane].block(unpad_start, 0, nw, base_cols)
         = padded_data.block(pad_start, 0, nw, base_cols);
 
       unpad_start += nw;
       pad_start += nw + npad;
     }
-    std::cout << "Unpadded to " << m_r_data[plane].rows() << std::endl;
 }
 
 void OmnibusSigProc::decon_2D_ROI_refine(int plane)
