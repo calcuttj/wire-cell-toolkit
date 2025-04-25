@@ -79,12 +79,12 @@ namespace custard {
         while (true) {
             std::string key = get_string(si, ' ');
             if (!si) {
-                // std::cerr << "custard::read(header) error \""
-                //           << strerror(errno) 
-                //           << "\" in reading key " << key << "\n";
+                std::cerr << "custard::read(header) error \""
+                          << strerror(errno) 
+                          << "\" in reading key " << key << "\n";
                 return si;
             }
-            // std::cerr << "custard::read(header) input stream at key |"<<key<<"|\n";
+            //  std::cerr << "custard::read(header) input stream at key |"<<key<<"|\n";
             if (key == "name") {
                 head.set_name(get_string(si, '\n'));
                 // std::cerr << "\t|" << head.name() << "|\n";
@@ -110,12 +110,12 @@ namespace custard {
             else if (key == "body") {
                 head.set_size(get_number(si));
                 head.gensum();
-                // std::cerr << "custard::read(header) got body size "
-                //           << head.size() << " " << head.chksum() << " " << head.checksum() << std::endl;
+                std::cerr << "custard::read(header) got body size "
+                           << head.size() << " " << head.chksum() << " " << head.checksum() << std::endl;
                 return si;
             }
             if (!si) {
-                // std::cerr << "custard::read(header) input stream is bad: " << strerror(errno) << std::endl;
+                std::cerr << "custard::read(header) input stream is bad: " << strerror(errno) << std::endl;
                 return si;
             }
         }
@@ -127,13 +127,13 @@ namespace custard {
                        std::string& filename, size_t& filesize)
     {
         if (!si) {
-            // std::cerr << "custard::read given bad stream\n";
+            std::cerr << "custard::read given bad stream\n";
             return si;
         }
         custard::Header head;
         read(si, head);
         if (!si) {
-            // std::cerr << "custard::read head broke stream\n";
+            std::cerr << "custard::read head broke stream\n";
             return si;
         }
         filename = head.name();

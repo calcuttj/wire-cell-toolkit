@@ -542,6 +542,7 @@ namespace custard {
         };
 
         if (has("tar|tar.gz|tgz|tar.bz2|tbz|tbz2|tar.xz|txz|tar.pixz|tix|tpxz")) {
+            std::cerr << "Pushing tar_reader" << std::endl;
             in.push(custard::tar_reader());
         }
 

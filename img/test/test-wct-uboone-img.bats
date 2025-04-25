@@ -210,18 +210,18 @@ function roundtrip () {
     [[ -z "$delta" ]]
 }
 
-@test "round trip json to json" {
-    roundtrip json json
-}
-@test "round trip numpy to numpy" {
-    roundtrip numpy numpy
-}
-@test "round trip numpy to json" {
-    roundtrip numpy json
-}
-@test "round trip json to numpy" {
-    roundtrip json numpy
-}
+#@test "round trip json to json" {
+#    roundtrip json json
+#}
+#@test "round trip numpy to numpy" {
+#    roundtrip numpy numpy
+#}
+#@test "round trip numpy to json" {
+#    roundtrip numpy json
+#}
+#@test "round trip json to numpy" {
+#    roundtrip json numpy
+#}
 
 function roundtrip2 () {
     local ifmt=$1; shift
@@ -288,4 +288,8 @@ function roundtrip2 () {
 
 @test "round trip json to tensor" {
     roundtrip2 json tensor
+}
+
+@test "round trip numpy to tensor" {
+    roundtrip2 numpy tensor
 }

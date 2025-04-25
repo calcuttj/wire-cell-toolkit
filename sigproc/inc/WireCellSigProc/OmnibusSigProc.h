@@ -232,6 +232,7 @@ namespace WireCell {
             std::string m_break_roi_loop2_tag{"break_roi_2nd"};
             std::string m_shrink_roi_tag{"shrink_roi"};
             std::string m_extend_roi_tag{"extend_roi"};
+            std::string m_decon_init_tag{"decon_init"};
 
             bool m_use_multi_plane_protection{false};
             bool m_do_not_mp_protect_traditional{false};

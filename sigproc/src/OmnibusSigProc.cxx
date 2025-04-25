@@ -171,6 +171,7 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_break_roi_loop2_tag = get(config, "break_roi_loop2_tag", m_break_roi_loop2_tag);
     m_shrink_roi_tag = get(config, "shrink_roi_tag", m_shrink_roi_tag);
     m_extend_roi_tag = get(config, "extend_roi_tag", m_extend_roi_tag);
+    m_decon_init_tag = get(config, "decon_init_tag", m_decon_init_tag);
 
     m_use_multi_plane_protection = get<bool>(config, "use_multi_plane_protection", m_use_multi_plane_protection);
     m_do_not_mp_protect_traditional = get<bool>(config, "do_not_mp_protect_traditional", m_do_not_mp_protect_traditional);
@@ -327,6 +328,7 @@ WireCell::Configuration OmnibusSigProc::default_configuration() const
     cfg["break_roi_loop2_tag"] = m_break_roi_loop2_tag;
     cfg["shrink_roi_tag"] = m_shrink_roi_tag;
     cfg["extend_roi_tag"] = m_extend_roi_tag;
+    cfg["decon_init_tag"] = m_decon_init_tag;
 
     cfg["use_multi_plane_protection"] = m_use_multi_plane_protection;  // default false
     cfg["mp3_roi_tag"] = m_mp3_roi_tag;
@@ -1483,7 +1485,7 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
     IFrame::trace_list_t wiener_traces, gauss_traces;
     // here are some trace lists for debug mode
     IFrame::trace_list_t tight_lf_traces, loose_lf_traces, cleanup_roi_traces, break_roi_loop1_traces,
-        break_roi_loop2_traces, shrink_roi_traces, extend_roi_traces;
+        break_roi_loop2_traces, shrink_roi_traces, extend_roi_traces, decon_init_traces;
     IFrame::trace_list_t mp2_roi_traces, mp3_roi_traces;
     IFrame::trace_list_t decon_charge_traces;
 
@@ -1512,6 +1514,12 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         // initial decon ...
         decon_2D_init(iplane);  // decon in large matrix
         check_data(iplane, "after 2D init");
+
+        if (!m_decon_init_tag.empty()) {
+            std::vector<double> dummy;
+            save_data(*itraces, decon_init_traces, iplane, perwire_rmses, dummy, "decon_init");
+        }
+
 
         // Form tight ROIs
         if (iplane != 2) {  // induction wire planes
@@ -1715,6 +1723,9 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
         }
         if (!m_gauss_tag.empty()) {
             sframe->tag_traces(m_gauss_tag, gauss_traces);
+        }
+        if (!m_decon_init_tag.empty()) {
+            sframe->tag_traces(m_decon_init_tag, decon_init_traces);
         }
     }
 
