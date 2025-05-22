@@ -225,6 +225,8 @@ namespace WireCell {
             bool m_use_roi_debug_mode{false};
             bool m_save_negtive_charge{false};
             bool m_use_roi_refinement{true};
+            bool m_debug_no_frer{true};
+            bool m_debug_no_wire_filter{true};
             std::string m_tight_lf_tag{"tight_lf"};
             std::string m_loose_lf_tag{"loose_lf"};
             std::string m_cleanup_roi_tag{"cleanup_roi"};

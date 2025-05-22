@@ -18,6 +18,7 @@
 #include "WireCellUtil/String.h"
 #include "WireCellUtil/FFTBestLength.h"
 #include "WireCellUtil/Waveform.h"
+#include "WireCellUtil/NumpyHelper.h"
 
 #include "WireCellUtil/NamedFactory.h"
 
@@ -171,7 +172,12 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     m_break_roi_loop2_tag = get(config, "break_roi_loop2_tag", m_break_roi_loop2_tag);
     m_shrink_roi_tag = get(config, "shrink_roi_tag", m_shrink_roi_tag);
     m_extend_roi_tag = get(config, "extend_roi_tag", m_extend_roi_tag);
-    m_decon_init_tag = get(config, "decon_init_tag", m_decon_init_tag);
+    // m_decon_init_tag = get(config, "decon_init_tag", m_decon_init_tag);
+    // m_decon_init_tag = "decon_init";
+    // std::stringstream decon_stream;
+    // decon_stream << "decon_init" << std::to_string(m_anode->ident());
+    // std::cout << decon_stream << std::endl;
+    // m_decon_init_tag = m_decon_init_tag + std::to_string(m_anode->ident());
 
     m_use_multi_plane_protection = get<bool>(config, "use_multi_plane_protection", m_use_multi_plane_protection);
     m_do_not_mp_protect_traditional = get<bool>(config, "do_not_mp_protect_traditional", m_do_not_mp_protect_traditional);
@@ -190,10 +196,15 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
     }
     m_rebase_nbins = get(config, "rebase_nbins", m_rebase_nbins);
 
+    m_debug_no_frer = get(config, "debug_no_frer", m_debug_no_frer);
+    m_debug_no_wire_filter = get(config, "debug_no_wire_filter", m_debug_no_wire_filter);
+
     m_isWrapped = get<bool>(config, "isWrapped", m_isWrapped);
 
     // this throws if not found
     m_anode = Factory::find_tn<IAnodePlane>(m_anode_tn);
+    m_decon_init_tag = String::format("decon_init%i", m_anode->ident());
+
 
     //
     m_elecresponse = Factory::find_tn<IWaveform>(m_elecresponse_tn);
@@ -244,8 +255,8 @@ void OmnibusSigProc::configure(const WireCell::Configuration& config)
         for (auto ichan : plane_channels[iplane]) {
             const int wct_chan_ident = ichan->ident();
             OspChan och(osp_channel_number, osp_wire_number, iplane, wct_chan_ident);
-            // std::cout << "[hyu1]chmap: " << wct_chan_ident << " " << iplane << " " << osp_channel_number << " " <<
-            // osp_wire_number << std::endl;
+            std::cout << "[hyu1]chmap: " << wct_chan_ident << " " << iplane << " " <<
+                osp_wire_number << std::endl;
             m_roi_ch_ch_ident[osp_channel_number] = wct_chan_ident;
             m_channel_map[wct_chan_ident] = och;     // we could save some space by storing
             m_channel_range[iplane].push_back(och);  // wct ident here instead of a whole och.
@@ -342,6 +353,8 @@ WireCell::Configuration OmnibusSigProc::default_configuration() const
     cfg["isWarped"] = m_isWrapped;  // default false
 
     cfg["sparse"] = false;
+    cfg["debug_no_frer"] = m_debug_no_frer;  // default false
+    cfg["debug_no_wire_filter"] = m_debug_no_wire_filter;  // default false
 
     return cfg;
 }
@@ -814,6 +827,13 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
     // auto ewave = ce.generate(tbins);
     auto ewave = (*m_elecresponse).waveform_samples(tbins);
     Waveform::scale(ewave, m_inter_gain * m_ADC_mV * (-1));
+    {
+        const std::string fname = "omnibus_output_er.npz";
+        const std::string mode = "a";
+        const std::string aname = "er";
+        cnpy::npz_save(fname, aname, ewave.data(), {fine_nticks}, mode);
+    }
+
     elec = fwd_r2c(m_dft, ewave);
 
     std::complex<float> fine_period(fravg.period, 0);
@@ -841,7 +861,18 @@ void OmnibusSigProc::init_overall_response(IFrame::pointer frame)
         int ilayer = m_plane2layer[iplane]; // Remap plane layer if necessary (default: 0,1,2), see:
                                             // https://github.com/WireCell/wire-cell-toolkit/issues/322
         auto arr = Response::as_array(fravg.planes[ilayer], fine_nwires, fine_nticks);
-
+        std::cout << "length of fravg current: " << fravg.planes[0].paths[0].current.size() << std::endl;
+        std::cout << "fine_nticks: " << fine_nticks << std::endl;
+        std::cout << "fine_nwires: " << fine_nwires << std::endl;
+        //Debugging output of FRER
+        {
+            const std::string fname = "omnibus_output_fr.npz";
+            const std::string mode = "a";
+            const std::string aname = String::format(
+                "apa_%i_plane_%i", m_anode->ident(), iplane
+            );
+            WireCell::Numpy::save2d(arr, aname, fname, mode);
+        }
         int nrows = 0;
         int ncols = 0;
 
@@ -992,6 +1023,18 @@ void OmnibusSigProc::rebase_waveform(Array::array_xxf& arr,const int& n_bins)
 
 void OmnibusSigProc::decon_2D_init(int plane)
 {
+
+    //Debugging output of FRER
+    {
+        const std::string fname = "omnibus_output_readout.npz";
+        const std::string mode = "a";
+        const std::string aname = String::format(
+            "apa_%i_plane_%i", m_anode->ident(), plane
+        );
+        WireCell::Numpy::save2d(m_r_data[plane], aname, fname, mode);
+    }
+    
+
     // data part ...
     // first round of FFT on time
     m_c_data[plane] = fwd_r2c(m_dft, m_r_data[plane], 1);
@@ -1041,13 +1084,25 @@ void OmnibusSigProc::decon_2D_init(int plane)
         }
     }
 
+    //Debugging output of FRER
+    {
+        const std::string fname = "omnibus_output_frer.npz";
+        const std::string mode = "a";
+        const std::string aname = String::format(
+            "apa_%i_plane_%i", m_anode->ident(), plane
+        );
+        WireCell::Numpy::save2d(r_resp, aname, fname, mode);
+    }
+
+
     // do first round FFT on the resposne on time
     Array::array_xxc c_resp = fwd_r2c(m_dft, r_resp, 1);
     // do second round FFT on the response on wire
     c_resp = fwd(m_dft, c_resp, 0);
 
     // make ratio to the response and apply wire filter
-    m_c_data[plane] = m_c_data[plane] / c_resp;
+    if (!m_debug_no_frer)
+        m_c_data[plane] = m_c_data[plane] / c_resp;
 
     // apply software filter on wire
     // const std::vector<std::string> filter_names{"Wire_ind", "Wire_ind", "Wire_col"};
@@ -1063,7 +1118,8 @@ void OmnibusSigProc::decon_2D_init(int plane)
             if (std::isinf(val)) {
                 m_c_data[plane](irow, icol) = 0.0;
             }
-            m_c_data[plane](irow, icol) *= wire_filter_wf.at(irow);
+            if (!m_debug_no_wire_filter)
+                m_c_data[plane](irow, icol) *= wire_filter_wf.at(irow);
         }
     }
 
@@ -1074,6 +1130,7 @@ void OmnibusSigProc::decon_2D_init(int plane)
     m_r_data[plane] = inv_c2r(m_dft, m_c_data[plane], 1);
 
     // do the shift in wire
+    log->debug("Preparing to shift by {} wires in plane {}", m_wire_shift[plane]);
     const int nrows = m_r_data[plane].rows();
     const int ncols = m_r_data[plane].cols();
     {
@@ -1519,6 +1576,14 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             std::vector<double> dummy;
             save_data(*itraces, decon_init_traces, iplane, perwire_rmses, dummy, "decon_init");
         }
+        {
+            const std::string fname = "omnibus_output_sigproc.npz";
+            const std::string mode = "a";
+            const std::string aname = String::format(
+                "apa_%i_plane_%i", m_anode->ident(), iplane
+            );
+            WireCell::Numpy::save2d(m_r_data[iplane], aname, fname, mode);
+        }
 
 
         // Form tight ROIs
@@ -1579,6 +1644,14 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             if (m_use_roi_debug_mode and !m_decon_charge_tag.empty()) {
                 decon_2D_charge(iplane);
                 save_data(*itraces, decon_charge_traces, iplane, perwire_rmses, dummy, "decon");
+                {
+                    const std::string fname = "omnibus_output_decon_charge.npz";
+                    const std::string mode = "a";
+                    const std::string aname = String::format(
+                        "apa_%i_plane_%i", m_anode->ident(), iplane
+                    );
+                    WireCell::Numpy::save2d(m_r_data[iplane], aname, fname, mode);
+                }
             }
             m_c_data[iplane].resize(0, 0);  // clear memory
             m_r_data[iplane].resize(0, 0);  // clear memory
@@ -1679,6 +1752,14 @@ bool OmnibusSigProc::operator()(const input_pointer& in, output_pointer& out)
             std::vector<double> dummy_thresholds;
             if (m_use_roi_debug_mode and !m_decon_charge_tag.empty()) {
                 save_data(*itraces, decon_charge_traces, iplane, perwire_rmses, dummy_thresholds, "decon");
+            }
+            {
+                const std::string fname = "omnibus_output_decon_charge.npz";
+                const std::string mode = "a";
+                const std::string aname = String::format(
+                    "apa_%i_plane_%i", m_anode->ident(), iplane
+                );
+                WireCell::Numpy::save2d(m_r_data[iplane], aname, fname, mode);
             }
             roi_refine.apply_roi(iplane, m_r_data[iplane]);
             // roi_form.apply_roi(iplane, m_r_data[plane],1);
